@@ -1,0 +1,260 @@
+<odoo>
+    <!-- <data> -->
+        <!-- Customer Invoice Tree -->
+        <record id="view_move_tree_invoice" model="ir.ui.view">
+            <field name="name">account.move.tree.inherit.brand</field>
+            <field name="model">account.move</field>
+            <field name="inherit_id" ref="account.view_out_invoice_tree"/>
+            <field name="arch" type="xml">
+                <!-- Menambahkan kolom Brand -->
+                <xpath expr="//tree/field[@name='name']" position="after">
+                    <field name="brand" string="Brand" optional="show" invisible="not (move_type == 'out_invoice' or move_type == 'in_invoice' or move_type == 'out_refund')"/> 
+                </xpath>
+
+                <!-- Menambahkan kolom Cashback Status -->
+                <xpath expr="//tree/field[@name='brand']" position="after">
+                    <field name="cashback_status"
+                        widget="badge" 
+                        decoration-info="cashback_status == 'cashbacked'" 
+                        decoration-danger="cashback_status == 'not_yet'" 
+                        optional="show" 
+                        invisible="not (move_type == 'out_invoice' or move_type == 'in_invoice' or move_type == 'out_refund')"
+                    />
+                </xpath>
+                
+                <!-- Menambahkan kolom Remarks -->
+                <xpath expr="//tree/field[@name='cashback_status']" position="after">
+                    <field name="narration" string="Remarks" optional="show"/> 
+                </xpath>
+
+                <xpath expr="//tree/field[@name='payment_state']" position="replace">
+                    <field name="payment_state"
+                        widget="badge" 
+                        decoration-danger="payment_state == 'not_paid'"
+                        decoration-warning="payment_state == 'partial'"
+                        decoration-success="payment_state in ('paid', 'in_payment')"
+                        decoration-info="payment_state == 'reversed'"
+                        invisible="payment_state == 'invoicing_legacy' or state != 'posted' or move_type == 'entry'"
+                        optional="show"
+                    />
+                </xpath>
+            </field>
+        </record>
+
+        <!-- Customer Credit Note Tree -->
+        <record id="view_move_tree_credit_note" model="ir.ui.view">
+            <field name="name">account.move.tree.inherit.brand</field>
+            <field name="model">account.move</field>
+            <field name="inherit_id" ref="account.view_out_credit_note_tree"/>
+            <field name="arch" type="xml">
+                <!-- Menambahkan kolom Brand -->
+                <xpath expr="//tree/field[@name='name']" position="after">
+                    <field name="brand" string="Brand" optional="show" invisible="not (move_type == 'out_invoice' or move_type == 'in_invoice' or move_type == 'out_refund')"/> 
+                </xpath>
+
+                <!-- Menambahkan kolom Cashback Status -->
+                <xpath expr="//tree/field[@name='brand']" position="after">
+                    <field name="cashback_status"
+                        widget="badge" 
+                        decoration-info="cashback_status == 'cashbacked'" 
+                        decoration-danger="cashback_status == 'not_yet'" 
+                        optional="show" 
+                        invisible="not (move_type == 'out_invoice' or move_type == 'in_invoice' or move_type == 'out_refund')"
+                    />
+                </xpath>
+                
+                <!-- Menambahkan kolom Remarks -->
+                <xpath expr="//tree/field[@name='cashback_status']" position="after">
+                    <field name="narration" string="Remarks" optional="show"/> 
+                </xpath>
+
+                <xpath expr="//tree/field[@name='payment_state']" position="replace">
+                    <field name="payment_state"
+                        widget="badge" 
+                        decoration-danger="payment_state == 'not_paid'"
+                        decoration-warning="payment_state == 'partial'"
+                        decoration-success="payment_state in ('paid', 'in_payment')"
+                        decoration-info="payment_state == 'reversed'"
+                        invisible="payment_state == 'invoicing_legacy' or state != 'posted' or move_type == 'entry'"
+                        optional="show"
+                    />
+                </xpath>
+            </field>
+        </record>
+
+        <!-- Vendor Bill Invoice Tree -->
+        <record id="view_invoice_tree_bill" model="ir.ui.view">
+            <field name="name">account.invoice.tree.inherit.brand</field>
+            <field name="model">account.move</field>
+            <field name="inherit_id" ref="account.view_in_invoice_bill_tree"/>
+            <field name="arch" type="xml">
+                <!-- Menambahkan kolom Brand -->
+                <xpath expr="//tree/field[@name='name']" position="after">
+                    <field name="brand" string="Brand" optional="show"/>
+                </xpath>
+
+                <!-- Menambahkan kolom Remarks -->
+                <xpath expr="//tree/field[@name='brand']" position="after">
+                    <field name="narration" string="Remarks" optional="show"/> 
+                </xpath>
+            </field>
+        </record>
+
+        <!-- Vendor Refund Invoice Tree -->
+        <record id="view_invoice_tree_refund" model="ir.ui.view">
+            <field name="name">account.invoice.tree.inherit.brand</field>
+            <field name="model">account.move</field>
+            <field name="inherit_id" ref="account.view_in_invoice_refund_tree"/>
+            <field name="arch" type="xml">
+                <!-- Menambahkan kolom Brand -->
+                <xpath expr="//tree/field[@name='name']" position="after">
+                    <field name="brand" string="Brand" optional="show"/>
+                </xpath>
+
+                <!-- Menambahkan kolom Remarks -->
+                <xpath expr="//tree/field[@name='brand']" position="after">
+                    <field name="narration" string="Remarks" optional="show"/> 
+                </xpath>
+            </field>
+        </record>
+
+        <!-- Filter berdasarkan status cashback -->
+        <record id="account_move_search_view" model="ir.ui.view">
+            <field name="name">account.move.inherit.cashback.status</field>
+            <field name="model">account.move</field>
+            <field name="inherit_id" ref="account.view_account_invoice_filter"/>
+            <field name="arch" type="xml">
+                <xpath expr="//search" position="inside">
+                    <filter string="Cashbacked" name="cashbacked" domain="[('cashback_status', '=', 'cashbacked')]"/>
+                    <filter string="Not Yet" name="not_yet" domain="[('cashback_status', '=', 'not_yet')]"/>
+                </xpath>
+            </field>
+        </record>
+
+        <record id="account_move_cashback_action" model="ir.actions.server">
+            <field name="name">Create Cashback</field>
+            <field name="model_id" ref="account.model_account_move"/>
+            <field name="binding_model_id" ref="account.model_account_move"/>
+            <field name="state">code</field>
+            <field name="code">action = env['account.move'].browse(record.id).create_cashback()</field>
+        </record>
+
+        <record id="action_account_moves_cashback" model="ir.actions.act_window">
+            <field name="name">Create Cashback</field>
+            <field name="res_model">account.move</field>
+            <field name="view_mode">form</field>
+            <field name="view_id" ref="account.view_move_form"/>
+            <field name="target">new</field>
+        </record>
+        
+        <record id="view_cashback_package_wizard_form" model="ir.ui.view">
+            <field name="name">cashback.package.wizard.form</field>
+            <field name="model">cashback.package.wizard</field>
+            <field name="arch" type="xml">
+            <form string="Select Cashback Package">
+                <sheet>
+                <group>
+                    <field name="cashback_package" widget="float" options="{'horizontal': true}"/>
+                    <field name="total_selected_invoices" readonly="1"/>
+                </group>
+                <group>
+                    <field name="selected_invoice_ids" readonly="1">
+                    <tree>
+                        <field name="name" string="Invoice Number"/>
+                        <field name="brand" string="Brand"/>
+                        <field name="amount_untaxed" string="Total Amount"/>
+                    </tree>
+                    </field>
+                </group>
+                <group>
+                    <field name="cashback_percentage" widget="float" options="{'horizontal': true}"/>
+                    <field name="cashback_amount" string="Cashback Amount"/>
+                </group>
+                </sheet>
+                    <footer>
+                    <button name="action_create_cashback_invoice" string="Create Cashback Invoice" type="object" class="btn-primary"/>
+                    <button string="Cancel" class="btn-secondary" special="cancel"/>
+                    </footer>
+            </form>
+            </field>
+        </record>
+
+        <!-- Mengubah label 'Customer Invoice' menjadi 'Customer Cashback' -->
+        <record id="view_move_form_cashback" model="ir.ui.view">
+            <field name="name">account.move.form.cashback</field>
+            <field name="model">account.move</field>
+            <field name="inherit_id" ref="account.view_move_form"/>
+            <field name="arch" type="xml">
+                <!-- Mengganti tampilan label move_type dengan move_type_label -->
+                <xpath expr="//span[@class='o_form_label']/field[@name='move_type']" position="replace">
+                    <field 
+                        name="move_type" 
+                        readonly="1" 
+                        invisible="1"
+                    />
+                </xpath>
+                <xpath expr="//span[@class='o_form_label']/field[@name='move_type']" position="replace">
+                    <field name="move_type_label" string="Move Type" readonly="1"/>
+                </xpath>
+
+                <!-- Menggunakan XPath untuk memodifikasi bagian <div class="oe_title"> -->
+                <xpath expr="//div[@class='oe_title']" position="replace">
+                    <div class="oe_title">
+                        <span class="o_form_label">
+                            <field name="move_type_label" string="Move Type" readonly="1"/>
+                        </span>
+
+                        <div class="text-warning" invisible="not show_name_warning">
+                            The current highest number is <field class="oe_inline" name="highest_name"/>. You might want to put a higher number here.
+                        </div>
+
+                        <h1>
+                            <!-- Field name yang dimodifikasi -->
+                            <field name="name" invisible="name == '/' and not posted_before and not quick_edit_mode" 
+                                readonly="state != 'draft'" placeholder="Draft"/>
+
+                            <span invisible="state != 'draft' or name != '/' or posted_before or quick_edit_mode">Draft</span>
+                        </h1>
+                    </div>
+                </xpath>
+
+                <!-- Membuat Line baru -->
+                <xpath expr="//notebook/page[@id='invoice_tab']" position="before">
+                    <!-- Add the is_cashback_journal field as hidden -->
+                    <field name="is_cashback_journal" invisible="1"/>
+                    <page id="invoices_lists" name="invoice_list" string="Invoice List" invisible="move_type != 'in_invoice' or not is_cashback_journal">
+                        <field name="selected_invoice_ids">
+                            <tree editable="bottom">
+                                <field name="name" string="Invoice No"/>
+                                <field name="brand" string="Brand" widget="char" readonly="1"/>
+                                <field name="amount_untaxed" string="Price"/>
+                            </tree>
+                        </field>
+                    </page>
+                </xpath>
+                <xpath expr="//notebook/page[@id='invoices_lists']" position="inside">
+                    <group col="12">
+                        <group colspan="9"></group>
+                        <group colspan="3">
+                            <field name="total_selected_invoices" string="Total"/>
+                        </group>
+                    </group>
+                </xpath>
+
+                <xpath expr="//sheet" position="inside">
+                    <!-- Add the is_cashback_journal field as hidden -->
+                    <field name="is_cashback_journal" invisible="1"/>
+                    <group col="12" invisible="move_type != 'in_invoice' or not is_cashback_journal">
+                        <group colspan="8"></group>
+                        <group colspan="4">
+                            <field name="cashback_package" widget="float" options="{'horizontal': true}" string="Cashback Package" groups="account.group_account_invoice"/>
+                            <field name="cashback_percentage" widget="float" options="{'horizontal': true}" groups="account.group_account_invoice"/>
+                            <field name="cashback_amount" string="Cashback Amount" groups="account.group_account_invoice"/>
+                        </group>
+                    </group>
+                </xpath>
+            </field>
+        </record>
+    <!-- </data> -->
+</odoo>
+

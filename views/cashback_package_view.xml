@@ -1,0 +1,34 @@
+<?xml version='1.0' encoding='utf-8'?>
+<odoo>
+  <record id="view_cashback_package_wizard_form" model="ir.ui.view">
+    <field name="name">cashback.package.wizard.form</field>
+    <field name="model">cashback.package.wizard</field>
+    <field name="arch" type="xml">
+      <form string="Select Cashback Package">
+        <sheet>
+          <group>
+            <field name="cashback_package" widget="float" options="{'horizontal': true}"/>
+            <field name="total_selected_invoices" readonly="1"/>
+          </group>
+          <group>
+            <field name="selected_invoice_ids" readonly="1">
+              <tree>
+                <field name="name" string="Invoice Number"/>
+                <field name="brand" string="Brand"/>
+                <field name="amount_untaxed" string="Total Amount"/>
+              </tree>
+            </field>
+          </group>
+          <group>
+            <field name="cashback_percentage" widget="float" options="{'horizontal': true}"/>
+            <field name="cashback_amount" string="Cashback Amount"/>
+          </group>
+        </sheet>
+            <footer>
+              <button name="action_create_cashback_invoice" string="Create Cashback Invoice" type="object" class="btn-primary"/>
+              <button string="Cancel" class="btn-secondary" special="cancel"/>
+            </footer>
+      </form>
+    </field>
+  </record>
+</odoo>

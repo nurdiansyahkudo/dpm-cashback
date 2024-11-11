@@ -1,0 +1,337 @@
+from odoo import models, fields, api
+from odoo.exceptions import UserError
+
+PAYMENT_STATE_SELECTION = [
+        ('not_paid', 'Not Paid'),
+        ('in_payment', 'In Payment'),
+        ('paid', 'Paid'),
+        ('partial', 'Partially Paid'),
+        ('reversed', 'Reversed'),
+        ('invoicing_legacy', 'Invoicing App Legacy'),
+]
+
+class AccountMove(models.Model):
+    _inherit = 'account.move'
+
+    # cashback_percentage = fields.Selection(
+    #     [('10', '10%'), ('37', '37%')],
+    #     string='Cashback Percentage',
+    #     help="Select a cashback percentage or enter a manual amount."
+    # )
+    cashback_percentage = fields.Float(
+        string='Cashback Percentage',
+        help="Enter a cashback percentage, e.g., 10 for 10%."
+    )
+    cashback_amount = fields.Monetary(
+        string='Cashback Amount',
+        readonly=False,
+        compute='_compute_cashback_amount',
+        store=True,  # Changed to store=True for better performance and usability
+    )
+    cashback_package = fields.Selection(
+        [('395000000', '395,000,000'), ('495000000', '495,000,000')],
+        string='Cashback Package',
+        help="Select a cashback package for the calculation."
+    )
+    remaining_amount = fields.Monetary(
+        string="Remaining Amount",
+        compute='_compute_cashback_amount',
+        store=True,
+    )
+
+    # Field untuk label dinamis
+    move_type_label = fields.Char(string="Move Type Label", compute="_compute_move_type_label")
+
+    # Untuk Brand
+    brand = fields.Char(
+        string='Brand',
+        compute="_compute_brand",
+        search="_search_brand",  # Menambahkan fungsi pencarian 
+        store=True,  # Store is set to True for better performance
+    )
+
+    # Define the invoice_list_ids field
+    invoice_list_ids = fields.Many2many(
+        'account.move',
+        'account_move_cashback_rel',  # Relational table
+        'cashback_id',  # Column for cashback invoice
+        'invoice_id',    # Column for original invoice
+        string="Invoice List"
+    )
+
+    selected_invoice_ids = fields.Many2many(
+        'account.move',
+        'account_move_selected_invoice_rel',
+        'cashback_id',
+        'selected_invoice_id'
+    )
+
+    total_selected_invoices = fields.Monetary(
+        string="Total of Selected Invoices",
+        compute="_compute_total_selected_invoices",
+        store=True,
+    )
+
+    # Field untuk status cashback
+    cashback_status = fields.Selection(
+        [('cashbacked', 'Cashbacked'), ('not_yet', 'Not Yet')],
+        string="Cashback Status",
+        compute='_compute_cashback_status',
+        store=True
+    )
+
+    @api.depends('selected_invoice_ids', 'payment_state')
+    def _compute_cashback_status(self):
+        for record in self:
+            # Cek apakah invoice sudah dimasukkan ke cashback invoice dan statusnya paid atau in_payment
+            cashbacked = any(
+                invoice.move_type == 'in_invoice' and 
+                invoice.journal_id.name == 'Cashback' and 
+                invoice.payment_state in ['paid', 'in_payment']  # Pertimbangkan status 'paid' dan 'in_payment'
+                for invoice in record.selected_invoice_ids
+            )
+            
+            # Memperbarui status cashback
+            if cashbacked:
+                record.cashback_status = 'cashbacked'  # Status Cashbacked
+            else:
+                record.cashback_status = 'not_yet'  # Status Not Yet
+            # record.cashback_status = 'cashbacked' if cashbacked else 'not_yet'
+
+    @api.depends('selected_invoice_ids')
+    def _compute_total_selected_invoices(self):
+        for record in self:
+            # Hitung total dari price_total untuk semua selected_invoice_ids
+            record.total_selected_invoices = sum(invoice.amount_untaxed for invoice in record.selected_invoice_ids)
+
+    @api.depends('invoice_line_ids.name', 'invoice_line_ids.product_id', 'selected_invoice_ids')
+    def _compute_brand(self):
+        for record in self:
+            brands = []
+            # Cek apakah ini adalah invoice cashback (tipe 'in_invoice' dan journal adalah Customer Cashback)
+            is_cashback_invoice = record.move_type == 'in_invoice' and record.journal_id.name == 'Cashback'
+
+            # Periksa selected_invoice_ids terlebih dahulu
+            if record.selected_invoice_ids:
+                for selected_invoice in record.selected_invoice_ids:
+                    for line in selected_invoice.invoice_line_ids:
+                        # Ambil brand dari selected_invoice_ids jika tersedia
+                        if line.product_id:
+                            brand_value = line.product_id.product_tmpl_id.attribute_line_ids.filtered(
+                                lambda x: x.attribute_id.name == 'Brand'
+                            ).mapped('value_ids.name')
+                            brands.extend(brand_value)
+            else:
+                # Jika tidak ada selected_invoice_ids, lanjutkan pengecekan di invoice_line_ids
+                for line in record.invoice_line_ids:
+                    if is_cashback_invoice:
+                        # Jika invoice cashback, ambil Brand dari 'name' di invoice_line_ids
+                        if "Brand:" in line.name:
+                            # Memisahkan teks berdasarkan pola ' - Brand: '
+                            brand_info = line.name.split(" - Brand: ")
+                            if len(brand_info) > 1:
+                                # Mendapatkan nama brand setelah 'Brand:'
+                                brand_name = brand_info[1].strip()
+                                brands.append(brand_name)
+                    else:
+                        # Jika bukan invoice cashback, ambil Brand dari product_id
+                        if line.product_id:
+                            brand_value = line.product_id.product_tmpl_id.attribute_line_ids.filtered(
+                                lambda x: x.attribute_id.name == 'Brand'
+                            ).mapped('value_ids.name')
+                            brands.extend(brand_value)  # Gabungkan brand
+
+            # Menggabungkan brand menjadi string unik
+            record.brand = ', '.join(set(brands)) if brands else 'No Brand'
+
+
+    def _search_brand(self, operator, value):
+        # Fungsi pencarian untuk field brand
+        domain = []
+        for move in self.search([]):
+            if move.brand and value.lower() in move.brand.lower():
+                domain.append(move.id)
+        return [('id', 'in', domain)]
+
+    @api.depends('cashback_percentage', 'selected_invoice_ids', 'cashback_package')
+    def _compute_cashback_amount(self):
+        for record in self:
+            # Hitung total untaxed amount dari selected_invoice_ids
+            total_amount = sum(invoice.amount_untaxed for invoice in record.selected_invoice_ids)
+            # Check and parse the cashback package value
+            cashback_package_value = float(record.cashback_package or 0)
+            # Get the cashback percentage and calculate the cashback amount
+            cashback_percentage = record.cashback_percentage or 0
+
+            if cashback_percentage:
+                cashback_amount = (cashback_percentage / 100) * cashback_package_value
+            else:
+                cashback_amount = 0
+
+            # Set the cashback amount in the field
+            record.cashback_amount = cashback_amount
+            
+            # Calculate remaining amount
+            remaining_amount = total_amount - cashback_package_value
+
+            # Store remaining amount in the specified field
+            record.remaining_amount = remaining_amount if remaining_amount > 0 else 0
+
+    @api.depends('move_type', 'journal_id')
+    def _compute_move_type_label(self):
+        """Ubah label move_type berdasarkan kondisi journal dan move_type."""
+        for record in self:
+            if record.move_type == 'in_invoice' and record.journal_id.name == 'Cashback':
+                record.move_type_label = "Customer Cashback"
+            elif record.move_type == 'in_invoice':
+                record.move_type_label = "Vendor Bill"
+            else:
+                record.move_type_label = dict(self.fields_get(allfields=['move_type'])['move_type']['selection']).get(record.move_type, "")
+
+    @api.model
+    def create_cashback(self):
+        # Mendapatkan invoice yang dipilih oleh user
+        invoices = self.env['account.move'].browse(self.env.context.get('active_ids', []))
+
+        if not invoices:
+            return
+
+        # Journal khusus untuk Customer Cashback
+        cashback_journal = self.env['account.journal'].search([('name', '=', 'Cashback')], limit=1)
+        if not cashback_journal:
+            raise UserError("Journal 'Cashback' not found!")
+        
+        # Fetch the "Cashback Expenses" account
+        cashback_expenses_account = self.env['account.account'].search([('name', '=', 'ADDITIONAL EXPENSES - SALES PROGRAM')], limit=1)
+        if not cashback_expenses_account:
+            raise UserError("Account 'ADDITIONAL EXPENSES - SALES PROGRAM' not found!")
+
+        # Fetch the "Accrued Expenses - Customers Cashback" account
+        accrued_expenses_account = self.env['account.account'].search([('name', '=', 'ACCRUED EXPENSES - CUSTOMERS CASHBACK')], limit=1)
+        if not accrued_expenses_account:
+            raise UserError("Account 'ACCRUED EXPENSES - CUSTOMERS CASHBACK' not found!")
+
+        # Memastikan semua invoice memiliki partner yang sama
+        partner = invoices[0].partner_id
+        if any(invoice.partner_id != partner for invoice in invoices):
+            raise UserError("All selected invoices must have the same partner for cashback.")
+
+        # Inisialisasi variabel untuk menyimpan data invoice cashback
+        cashback_invoice_vals = {
+            'move_type': 'in_invoice',  # Tipe invoice: customer refund
+            'journal_id': cashback_journal.id,
+            'partner_id': partner.id,
+            'invoice_line_ids': [],
+            'selected_invoice_ids': [(6, 0, invoices.ids)],  # Link original invoices
+        }
+
+        # Membuat line product untuk "Cashback" dengan harga 0 pada awalnya
+        product_cashback = self.env['product.product'].search([('name', '=', 'Cashback')], limit=1)
+        if not product_cashback:
+            product_cashback = self.env['product.product'].create({
+                'name': 'Cashback',
+                'detailed_type': 'consumable',  # Tipe produk
+                'list_price': 0.0,  # Harga awal 0
+            })
+
+        # Mengambil data dari setiap invoice
+        for invoice in invoices:
+            for invoice_line in invoice.invoice_line_ids:
+                if invoice_line.product_id:  # Pastikan produk ada
+                    product = invoice_line.product_id
+
+                    # Mengambil brand dari attribute_line_ids di product.template
+                    brand_value = product.product_tmpl_id.attribute_line_ids.filtered(
+                        lambda line: line.attribute_id.name == 'Brand'
+                    ).mapped('value_ids.name')
+
+                    # Gabungkan brand values menjadi string, jika ada
+                    brand_name = ', '.join(brand_value) if brand_value else 'No Brand'
+
+        # Menambahkan produk "Cashback" ke invoice line
+        cashback_invoice_vals['invoice_line_ids'].append((0, 0, {
+            'product_id': product_cashback.id,
+            'name': f'Cashback for Brand: {brand_name}',  # Nama produk "Cashback"
+            'quantity': 1,
+            'price_unit': 0.0,  # Harga awal 0
+            'tax_ids': [(6, 0, [])],  # Mengatur pajak menjadi tidak ada
+            'account_id': cashback_expenses_account.id,  # Menggunakan akun Cashback Expenses
+        }))
+
+
+        # Membuat invoice cashback
+        cashback_invoice = self.env['account.move'].create(cashback_invoice_vals)
+
+        # Calculate total cashback from `cashback_amount`
+        cashback_total = sum(self.mapped('cashback_amount'))
+        
+        # Journal entry values for cashback
+        journal_entry_vals = {
+            'move_type': 'entry',
+            'journal_id': cashback_journal.id,
+            'ref': f"Cashback for {partner.name}",
+            'line_ids': [
+                (0, 0, {
+                    'account_id': cashback_expenses_account.id,
+                    'partner_id': partner.id,
+                    'name': 'ADDITIONAL EXPENSES - SALES PROGRAM',
+                    'debit': cashback_total,  # Use total amount from the cashback invoice
+                    'credit': 0.0,
+                }),
+                (0, 0, {
+                    'account_id': accrued_expenses_account.id,  # Correct credit account
+                    'partner_id': partner.id,
+                    'name': 'ACCRUED EXPENSES - CUSTOMERS CASHBACK',
+                    'debit': 0.0,
+                    'credit': cashback_total,  # Use total amount from the cashback invoice
+                }),
+            ],
+        }
+
+        # Create the journal entry for cashback
+        self.env['account.move'].create(journal_entry_vals)
+
+        # Kembalikan aksi untuk membuka invoice yang baru dibuat
+        return {
+            'name': 'Customer Cashback',
+            'view_mode': 'form',
+            'res_model': 'account.move',
+            'res_id': cashback_invoice.id,
+            'type': 'ir.actions.act_window',
+            'target': 'current',
+            'views': [(self.env.ref('cashback.view_move_form_cashback').id, 'form')],
+        }
+
+    def action_post(self):
+        super(AccountMove, self).action_post()
+
+        for move in self:
+            if move.move_type == 'in_invoice' and move.journal_id.name == 'Cashback':
+                # Update cashback status for selected invoices
+                for invoice in move.selected_invoice_ids:
+                    if invoice.move_type == 'out_invoice':  # Ensure only regular invoices are checked
+                        invoice.cashback_status = 'cashbacked'  # Set status to 'cashbacked'
+
+    def action_payment_register(self):
+        # Check if the journal is 'Customer Cashback'
+        if self.journal_id.name == 'Cashback':
+            # Execute the custom wizard
+            return {
+                'name': 'Register Payment for Cashback',
+                'type': 'ir.actions.act_window',
+                'res_model': 'account.payment.register',
+                'view_mode': 'form',
+                'view_id': self.env.ref('account.view_account_payment_form').id,
+                'target': 'new',
+                'context': {
+                    'default_amount': self.amount_residual,
+                    'default_partner_id': self.partner_id.id,
+                    'default_payment_options': 'direct_customer',
+                    'active_model': 'account.move',
+                    'active_ids': [self.id],
+                    'active_id': self.id,
+                },
+            }
+        else:
+            # If the journal is not 'Customer Cashback', run the default Odoo action
+            return super(AccountMove, self).action_payment_register()

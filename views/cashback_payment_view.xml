@@ -1,0 +1,48 @@
+<odoo>
+        <record id="view_cashback_payment_wizard" model="ir.ui.view">
+            <field name="name">account.payment.register.form.cashback</field>
+            <field name="model">account.payment.register</field>
+            <field name="inherit_id" ref="account.view_account_payment_register_form"/>
+            <field name="arch" type="xml">
+                <!-- Menampilkan field amount dengan string "Cashback Amount" -->
+                <!-- <xpath expr="//div[@class='o_row']/field[@name='amount']" position="replace">
+                    <field name="amount"/>
+                </xpath> -->
+                
+                <!-- Payment Options dan Invoice to Pay hanya muncul jika journal adalah Customer Cashback -->
+                <group>
+                    <label for="payment_options"/>
+                    <!-- <div name="payment_option_div"> -->
+                    <!-- Payment Options Field -->
+                    <field name="payment_options" string="Payment Options"/>
+                    <!-- Invoice to Pay Field, only visible if Payment Options is 'Pay for another invoice' -->
+                    <field name="selected_invoice_ids" 
+                        invisible="payment_options != 'pay_another_invoice'"/>
+                    <!-- </div> -->
+                </group>
+
+                <!-- Mengganti tombol create payment bawaan Odoo -->
+                <xpath expr="//footer" position="replace">
+                    <footer>
+                        <button string="Create Payment" 
+                                name="action_create_payment" 
+                                type="object" 
+                                class="oe_highlight" 
+                                data-hotkey="q"/>
+                        <button string="Discard" 
+                                class="btn btn-secondary" 
+                                special="cancel" 
+                                data-hotkey="x"/>
+                    </footer>
+                </xpath>
+            </field>
+        </record>
+
+        <!-- Action untuk membuka wizard payment -->
+        <record id="action_cashback_payment_wizard" model="ir.actions.act_window">
+            <field name="name">Register Cashback Payment</field>
+            <field name="res_model">account.payment.register</field>
+            <field name="view_mode">form</field>
+            <field name="target">new</field>
+        </record>
+</odoo>

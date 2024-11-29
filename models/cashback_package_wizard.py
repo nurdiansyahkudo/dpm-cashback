@@ -116,12 +116,9 @@ class CashbackPackageWizard(models.TransientModel):
 
         # Membuat line product untuk "Cashback" dengan nilai cashback_amount
         product_cashback = self.env['product.product'].search([('name', '=', 'Cashback')], limit=1)
+
         if not product_cashback:
-            product_cashback = self.env['product.product'].create({
-                'name': 'Cashback',
-                'detailed_type': 'consumable',  # Tipe produk
-                'list_price': 0.0,  # Harga awal 0
-            })
+            raise UserError("Product 'Cashback' does not exist. Please create it first.")
 
         # Menambahkan produk "Cashback" ke invoice line dengan nilai cashback_amount
         cashback_invoice_vals['invoice_line_ids'].append((0, 0, {

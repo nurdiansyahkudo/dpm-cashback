@@ -85,9 +85,9 @@ class CashbackPackageWizard(models.TransientModel):
             raise UserError("Journal 'Cashback' not found!")
         
         # Fetch the "Cashback Expenses" account
-        cashback_expenses_account = self.env['account.account'].search([('name', '=', 'ADDITIONAL EXPENSES - SALES PROGRAM')], limit=1)
+        cashback_expenses_account = self.env['account.account'].search([('name', '=', 'SALES PROGRAM - ADDITIONAL EXPENSES')], limit=1)
         if not cashback_expenses_account:
-            raise UserError("Account 'ADDITIONAL EXPENSES - SALES PROGRAM' not found!")
+            raise UserError("Account 'SALES PROGRAM - ADDITIONAL EXPENSES' not found!")
 
         # Fetch the "Accrued Expenses - Customers Cashback" account
         accrued_expenses_account = self.env['account.account'].search([('name', '=', 'ACCRUED EXPENSES - CUSTOMERS CASHBACK')], limit=1)

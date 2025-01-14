@@ -187,14 +187,12 @@
             <field name="arch" type="xml">
                 <!-- Mengganti tampilan label move_type dengan move_type_label -->
                 <xpath expr="//span[@class='o_form_label']/field[@name='move_type']" position="replace">
-                    <field 
+                    <!-- <field 
                         name="move_type" 
                         readonly="1" 
                         invisible="1"
-                    />
-                </xpath>
-                <xpath expr="//span[@class='o_form_label']/field[@name='move_type']" position="replace">
-                    <field name="move_type_label" string="Move Type" readonly="1"/>
+                    /> -->
+                    <field name="move_type_label" readonly="1"/>
                 </xpath>
 
                 <!-- Menggunakan XPath untuk memodifikasi bagian <div class="oe_title"> -->

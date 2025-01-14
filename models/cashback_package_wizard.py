@@ -85,14 +85,14 @@ class CashbackPackageWizard(models.TransientModel):
             raise UserError("Journal 'Cashback' not found!")
         
         # Fetch the "Cashback Expenses" account
-        cashback_expenses_account = self.env['account.account'].search([('name', '=', 'SALES PROGRAM - ADDITIONAL EXPENSES')], limit=1)
+        cashback_expenses_account = self.env['account.account'].search([('code', '=', '42200000000')], limit=1)
         if not cashback_expenses_account:
-            raise UserError("Account 'SALES PROGRAM - ADDITIONAL EXPENSES' not found!")
+            raise UserError("Account not found!")
 
         # Fetch the "Accrued Expenses - Customers Cashback" account
-        accrued_expenses_account = self.env['account.account'].search([('name', '=', 'ACCRUED EXPENSES - CUSTOMERS CASHBACK')], limit=1)
+        accrued_expenses_account = self.env['account.account'].search([('code', '=', '24300000000')], limit=1)
         if not accrued_expenses_account:
-            raise UserError("Account 'ACCRUED EXPENSES - CUSTOMERS CASHBACK' not found!")
+            raise UserError("Account not found!")
 
         # Memastikan semua invoice memiliki partner yang sama
         partner = invoices[0].partner_id
@@ -104,7 +104,7 @@ class CashbackPackageWizard(models.TransientModel):
 
         # Inisialisasi variabel untuk menyimpan data invoice cashback
         cashback_invoice_vals = {
-            'move_type': 'in_invoice',  # Tipe invoice: customer refund
+            'move_type': 'out_refund',  # Tipe invoice: customer refund
             'journal_id': cashback_journal.id,
             'partner_id': partner.id,
             'invoice_line_ids': [],

@@ -115,7 +115,7 @@ class CashbackPackageWizard(models.TransientModel):
         }
 
         # Membuat line product untuk "Cashback" dengan nilai cashback_amount
-        product_cashback = self.env['product.product'].search([('name', '=', 'Cashback')], limit=1)
+        product_cashback = self.env['product.product'].search([('name', 'ilike', 'Cashback')], limit=1)
 
         if not product_cashback:
             raise UserError("Product 'Cashback' does not exist. Please create it first.")

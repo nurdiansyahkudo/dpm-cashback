@@ -177,10 +177,10 @@ class AccountMove(models.Model):
     def _compute_move_type_label(self):
         """Ubah label move_type berdasarkan kondisi journal dan move_type."""
         for record in self:
-            if record.move_type == 'in_invoice' and record.journal_id.name == 'Cashback':
+            if record.move_type == 'out_refund' and record.journal_id.name == 'Cashback':
                 record.move_type_label = "Customer Cashback"
-            elif record.move_type == 'in_invoice':
-                record.move_type_label = "Vendor Bill"
+            elif record.move_type == 'out_refund':
+                record.move_type_label = "Customer Credit Note"
             else:
                 record.move_type_label = dict(self.fields_get(allfields=['move_type'])['move_type']['selection']).get(record.move_type, "")
 

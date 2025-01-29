@@ -258,8 +258,6 @@ class AccountMove(models.Model):
                                 for journal_id in x['counterpart_move_journals']:
                                     counterpart_journals.add(journal_id)
 
-                            _logger.info(f"Invoice: {invoice.name} | Reverse Types: {reverse_move_types} | Counterpart Journals: {counterpart_journals}")
-
                             in_reverse = (invoice.move_type in ('in_invoice', 'in_receipt')
                                           and (reverse_move_types == {'in_refund'} or reverse_move_types == {'in_refund', 'entry'}))
                             out_reverse = (invoice.move_type in ('out_invoice', 'out_receipt')

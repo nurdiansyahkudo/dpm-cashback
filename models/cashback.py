@@ -272,12 +272,6 @@ class AccountMove(models.Model):
                     elif reconciliation_vals:
                         new_pmt_state = 'partial'
 
-                        # Cek jurnal cashback dalam pembayaran parsial
-                        for x in reconciliation_vals:
-                            if ('out_refund' in x['counterpart_move_types']) and (set(x['counterpart_move_journals']) & set(cashback_journal_ids)):
-                                new_pmt_state = 'in_payment'
-                                break
-
             invoice.payment_state = new_pmt_state
 
     @api.model

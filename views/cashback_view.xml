@@ -186,10 +186,11 @@
             <field name="inherit_id" ref="account.view_move_form"/>
             <field name="arch" type="xml">
                 
-                <xpath expr="//div[@name='button_box']" position="after">
+                <xpath expr="//sheet/div[@name='button_box']" position="after">
                     <widget name="web_ribbon" title="Paid With Cashback"
                             invisible="payment_state != 'paid_cashback' or move_type not in ('out_invoice', 'out_refund', 'in_invoice', 'in_refund', 'out_receipt', 'in_receipt')"/>
                 </xpath>
+
                 <!-- Mengganti tampilan label move_type dengan move_type_label -->
                 <xpath expr="//span[@class='o_form_label']/field[@name='move_type']" position="replace">
                     <!-- <field 

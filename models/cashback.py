@@ -264,10 +264,10 @@ class AccountMove(models.Model):
                             misc_reverse = (invoice.move_type in ('entry', 'out_refund', 'in_refund')
                                             and reverse_move_types == {'entry'})
 
-                            if in_reverse or out_reverse or misc_reverse:
-                                new_pmt_state = 'reversed'
-                            elif cashback:
+                            if cashback:
                                 new_pmt_state = 'in_payment'
+                            elif in_reverse or out_reverse or misc_reverse:
+                                new_pmt_state = 'reversed'
 
                     elif reconciliation_vals:
                         new_pmt_state = 'partial'

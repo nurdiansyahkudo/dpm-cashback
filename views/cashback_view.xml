@@ -185,6 +185,11 @@
             <field name="model">account.move</field>
             <field name="inherit_id" ref="account.view_move_form"/>
             <field name="arch" type="xml">
+                
+                <xpath expr="//sheet/widget[@name='web_ribbon' and @title='Reversed']" position="after">
+                    <widget name="web_ribbon" title="Paid With Cashback"
+                            invisible="payment_state != 'paid' or move_type not in ('out_invoice', 'out_refund', 'in_invoice', 'in_refund', 'out_receipt', 'in_receipt')"/>
+                </xpath>
                 <!-- Mengganti tampilan label move_type dengan move_type_label -->
                 <xpath expr="//span[@class='o_form_label']/field[@name='move_type']" position="replace">
                     <!-- <field 
@@ -194,6 +199,7 @@
                     /> -->
                     <field name="move_type_label" readonly="1"/>
                 </xpath>
+                
 
                 <!-- Menggunakan XPath untuk memodifikasi bagian <div class="oe_title"> -->
                 <xpath expr="//div[@class='oe_title']" position="replace">

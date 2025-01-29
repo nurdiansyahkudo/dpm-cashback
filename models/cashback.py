@@ -9,6 +9,7 @@ PAYMENT_STATE_SELECTION = [
         ('partial', 'Partially Paid'),
         ('reversed', 'Reversed'),
         ('invoicing_legacy', 'Invoicing App Legacy'),
+        ('paid_cashback', 'Paid With Cashback'),
 ]
 
 class AccountMove(models.Model):
@@ -268,7 +269,7 @@ class AccountMove(models.Model):
                                             and reverse_move_types == {'entry'})
 
                             if cashback:
-                                new_pmt_state = 'in_payment'
+                                new_pmt_state = 'paid_cashback'
                             elif in_reverse or out_reverse or misc_reverse:
                                 new_pmt_state = 'reversed'
 

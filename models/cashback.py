@@ -262,7 +262,8 @@ class AccountMove(models.Model):
                             out_reverse = (invoice.move_type in ('out_invoice', 'out_receipt')
                                            and (reverse_move_types == {'out_refund'} or reverse_move_types == {'out_refund', 'entry'}))
                             cashback = (invoice.move_type in ('out_invoice', 'out_receipt')
-                                           and (reverse_move_types == {'out_refund'} or reverse_move_types == {'out_refund', 'entry'}) and reverse_journal_id.name == {'Cashback'})
+                                           and (reverse_move_types == {'out_refund'} or reverse_move_types == {'out_refund', 'entry'})  and any(self.env['account.journal'].browse(j_id).name == 'Cashback' for j_id in reverse_journal_id)
+)
                             misc_reverse = (invoice.move_type in ('entry', 'out_refund', 'in_refund')
                                             and reverse_move_types == {'entry'})
 

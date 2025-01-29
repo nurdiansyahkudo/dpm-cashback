@@ -32,7 +32,7 @@
                         widget="badge" 
                         decoration-danger="payment_state == 'not_paid'"
                         decoration-warning="payment_state in ('partial', 'in_payment')"
-                        decoration-success="payment_state == 'paid'"
+                        decoration-success="payment_state in ('paid', 'paid_cashback')"
                         decoration-info="payment_state == 'reversed'"
                         invisible="payment_state == 'invoicing_legacy' or state != 'posted' or move_type == 'entry'"
                         optional="show"

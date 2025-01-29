@@ -250,23 +250,19 @@ class AccountMove(models.Model):
                             new_pmt_state = 'paid'
 
                             reverse_move_types = set()
-                            counterpart_journals = set()
 
                             for x in reconciliation_vals:
                                 for move_type in x['counterpart_move_types']:
                                     reverse_move_types.add(move_type)
-                                for journal_id in x['counterpart_move_journals']:
-                                    counterpart_journals.add(journal_id)
 
                             in_reverse = (invoice.move_type in ('in_invoice', 'in_receipt')
                                           and (reverse_move_types == {'in_refund'} or reverse_move_types == {'in_refund', 'entry'}))
                             out_reverse = (invoice.move_type in ('out_invoice', 'out_receipt')
                                            and (reverse_move_types == {'out_refund'} or reverse_move_types == {'out_refund', 'entry'}))
+                            cashback = (invoice.move_type in ('out_invoice', 'out_receipt')
+                                           and (reverse_move_types == {'out_refund'} or reverse_move_types == {'out_refund', 'entry'}) and invoice.journal_id.name == 'Cashback')
                             misc_reverse = (invoice.move_type in ('entry', 'out_refund', 'in_refund')
                                             and reverse_move_types == {'entry'})
-
-                            # **Cek apakah ada out_refund yang menggunakan jurnal cashback**
-                            cashback = ('out_refund' in reverse_move_types) and (set(counterpart_journals) & set(cashback_journal_ids))
 
                             if in_reverse or out_reverse or misc_reverse:
                                 new_pmt_state = 'reversed'

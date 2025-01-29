@@ -314,11 +314,11 @@ class AccountMove(models.Model):
         super(AccountMove, self).action_post()
 
         for move in self:
-            if move.move_type == 'in_invoice' and move.journal_id.name == 'Cashback':
+            if move.move_type == 'out_refund' and move.journal_id.name == 'Cashback':
                 # Update cashback status for selected invoices
                 for invoice in move.selected_invoice_ids:
-                    if invoice.move_type == 'out_invoice':  # Ensure only regular invoices are checked
-                        invoice.cashback_status = 'cashbacked'  # Set status to 'cashbacked'
+                    if invoice.move_type in ('out_invoice', 'out_refund'):  # Ensure both regular invoices and refunds are checked
+                        invoice.cashback_status = 'cashbacked'
 
     def action_payment_register(self):
         # Check if the journal is 'Customer Cashback'

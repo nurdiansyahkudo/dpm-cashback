@@ -222,6 +222,7 @@ class AccountMove(models.Model):
         else:
             payment_data = {}
 
+        # Dapatkan ID jurnal "Cashback"
         cashback_journal_ids = self.env['account.journal'].search([('name', '=', 'Cashback')]).ids
 
         for invoice in self:
@@ -249,9 +250,15 @@ class AccountMove(models.Model):
                             new_pmt_state = 'paid'
 
                             reverse_move_types = set()
+                            counterpart_journals = set()
+
                             for x in reconciliation_vals:
                                 for move_type in x['counterpart_move_types']:
                                     reverse_move_types.add(move_type)
+                                for journal_id in x['counterpart_move_journals']:
+                                    counterpart_journals.add(journal_id)
+
+                            _logger.info(f"Invoice: {invoice.name} | Reverse Types: {reverse_move_types} | Counterpart Journals: {counterpart_journals}")
 
                             in_reverse = (invoice.move_type in ('in_invoice', 'in_receipt')
                                           and (reverse_move_types == {'in_refund'} or reverse_move_types == {'in_refund', 'entry'}))
@@ -259,20 +266,25 @@ class AccountMove(models.Model):
                                            and (reverse_move_types == {'out_refund'} or reverse_move_types == {'out_refund', 'entry'}))
                             misc_reverse = (invoice.move_type in ('entry', 'out_refund', 'in_refund')
                                             and reverse_move_types == {'entry'})
+
+                            # **Cek apakah ada out_refund yang menggunakan jurnal cashback**
+                            cashback = ('out_refund' in reverse_move_types) and (set(counterpart_journals) & set(cashback_journal_ids))
+
                             if in_reverse or out_reverse or misc_reverse:
                                 new_pmt_state = 'reversed'
+                            elif cashback:
+                                new_pmt_state = 'in_payment'
 
                     elif reconciliation_vals:
                         new_pmt_state = 'partial'
 
-                        # Tambahkan kondisi untuk refund yang memiliki journal cashback
+                        # Cek jurnal cashback dalam pembayaran parsial
                         for x in reconciliation_vals:
-                            if set(x['counterpart_move_journals']) & set(cashback_journal_ids):
+                            if ('out_refund' in x['counterpart_move_types']) and (set(x['counterpart_move_journals']) & set(cashback_journal_ids)):
                                 new_pmt_state = 'in_payment'
                                 break
 
             invoice.payment_state = new_pmt_state
-
 
     @api.model
     def create_cashback(self):

@@ -15,6 +15,14 @@ PAYMENT_STATE_SELECTION = [
 class AccountMove(models.Model):
     _inherit = 'account.move'
 
+    payment_state = fields.Selection(
+        selection=PAYMENT_STATE_SELECTION,
+        string="Payment Status",
+        compute='_compute_payment_state', store=True, readonly=True,
+        copy=False,
+        tracking=True,
+    )
+
     is_cashback_journal = fields.Boolean(
         compute='_compute_is_cashback_journal',
         store=True,

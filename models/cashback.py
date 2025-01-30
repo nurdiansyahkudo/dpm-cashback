@@ -1,5 +1,6 @@
 from odoo import models, fields, api
 from odoo.exceptions import UserError
+from collections import defaultdict
 
 PAYMENT_STATE_SELECTION = [
         ('not_paid', 'Not Paid'),
@@ -8,10 +9,19 @@ PAYMENT_STATE_SELECTION = [
         ('partial', 'Partially Paid'),
         ('reversed', 'Reversed'),
         ('invoicing_legacy', 'Invoicing App Legacy'),
+        ('paid_cashback', 'Paid With Cashback'),
 ]
 
 class AccountMove(models.Model):
     _inherit = 'account.move'
+
+    payment_state = fields.Selection(
+        selection=PAYMENT_STATE_SELECTION,
+        string="Payment Status",
+        compute='_compute_payment_state', store=True, readonly=True,
+        copy=False,
+        tracking=True,
+    )
 
     is_cashback_journal = fields.Boolean(
         compute='_compute_is_cashback_journal',
@@ -177,12 +187,104 @@ class AccountMove(models.Model):
     def _compute_move_type_label(self):
         """Ubah label move_type berdasarkan kondisi journal dan move_type."""
         for record in self:
-            if record.move_type == 'in_invoice' and record.journal_id.name == 'Cashback':
+            if record.move_type == 'out_refund' and record.journal_id.name == 'Cashback':
                 record.move_type_label = "Customer Cashback"
-            elif record.move_type == 'in_invoice':
-                record.move_type_label = "Vendor Bill"
+            elif record.move_type == 'out_refund':
+                record.move_type_label = "Customer Credit Note"
             else:
                 record.move_type_label = dict(self.fields_get(allfields=['move_type'])['move_type']['selection']).get(record.move_type, "")
+
+    @api.depends('amount_residual', 'move_type', 'state', 'company_id')
+    def _compute_payment_state(self):
+        stored_ids = tuple(self.ids)
+        if stored_ids:
+            self.env['account.partial.reconcile'].flush_model()
+            self.env['account.payment'].flush_model(['is_matched'])
+
+            queries = []
+            for source_field, counterpart_field in (('debit', 'credit'), ('credit', 'debit')):
+                queries.append(f'''
+                    SELECT
+                        source_line.id AS source_line_id,
+                        source_line.move_id AS source_move_id,
+                        account.account_type AS source_line_account_type,
+                        ARRAY_AGG(counterpart_move.move_type) AS counterpart_move_types,
+                        ARRAY_AGG(counterpart_move.journal_id) AS counterpart_move_journals,
+                        COALESCE(BOOL_AND(COALESCE(pay.is_matched, FALSE))
+                            FILTER (WHERE counterpart_move.payment_id IS NOT NULL), TRUE) AS all_payments_matched,
+                        BOOL_OR(COALESCE(BOOL(pay.id), FALSE)) as has_payment,
+                        BOOL_OR(COALESCE(BOOL(counterpart_move.statement_line_id), FALSE)) as has_st_line
+                    FROM account_partial_reconcile part
+                    JOIN account_move_line source_line ON source_line.id = part.{source_field}_move_id
+                    JOIN account_account account ON account.id = source_line.account_id
+                    JOIN account_move_line counterpart_line ON counterpart_line.id = part.{counterpart_field}_move_id
+                    JOIN account_move counterpart_move ON counterpart_move.id = counterpart_line.move_id
+                    LEFT JOIN account_payment pay ON pay.id = counterpart_move.payment_id
+                    WHERE source_line.move_id IN %s AND counterpart_line.move_id != source_line.move_id
+                    GROUP BY source_line.id, source_line.move_id, account.account_type
+                ''')
+
+            self._cr.execute(' UNION ALL '.join(queries), [stored_ids, stored_ids])
+            payment_data = defaultdict(lambda: [])
+            for row in self._cr.dictfetchall():
+                payment_data[row['source_move_id']].append(row)
+        else:
+            payment_data = {}
+
+        for invoice in self:
+            if invoice.payment_state == 'invoicing_legacy':
+                continue
+
+            currencies = invoice._get_lines_onchange_currency().currency_id
+            currency = currencies if len(currencies) == 1 else invoice.company_id.currency_id
+            reconciliation_vals = payment_data.get(invoice.id, [])
+            payment_state_matters = invoice.is_invoice(True)
+
+            if payment_state_matters:
+                reconciliation_vals = [x for x in reconciliation_vals if x['source_line_account_type'] in ('asset_receivable', 'liability_payable')]
+
+            new_pmt_state = 'not_paid'
+            if invoice.state == 'posted':
+                if payment_state_matters:
+                    if currency.is_zero(invoice.amount_residual):
+                        if any(x['has_payment'] or x['has_st_line'] for x in reconciliation_vals):
+                            if all(x['all_payments_matched'] for x in reconciliation_vals):
+                                new_pmt_state = 'paid'
+                            else:
+                                new_pmt_state = invoice._get_invoice_in_payment_state()
+                        else:
+                            new_pmt_state = 'paid'
+
+                            reverse_move_types = set()
+                            reverse_journal_id = set()
+
+                            for x in reconciliation_vals:
+                                for move_type in x['counterpart_move_types']:
+                                    reverse_move_types.add(move_type)
+                            
+                            for x in reconciliation_vals:
+                                for journal_id in x['counterpart_move_journals']:
+                                    reverse_journal_id.add(journal_id)
+
+                            in_reverse = (invoice.move_type in ('in_invoice', 'in_receipt')
+                                          and (reverse_move_types == {'in_refund'} or reverse_move_types == {'in_refund', 'entry'}))
+                            out_reverse = (invoice.move_type in ('out_invoice', 'out_receipt')
+                                           and (reverse_move_types == {'out_refund'} or reverse_move_types == {'out_refund', 'entry'}))
+                            cashback = (invoice.move_type in ('out_invoice', 'out_receipt')
+                                           and (reverse_move_types == {'out_refund'} or reverse_move_types == {'out_refund', 'entry'})  and any(self.env['account.journal'].browse(j_id).name == 'Cashback' for j_id in reverse_journal_id)
+)
+                            misc_reverse = (invoice.move_type in ('entry', 'out_refund', 'in_refund')
+                                            and reverse_move_types == {'entry'})
+
+                            if cashback:
+                                new_pmt_state = 'paid_cashback'
+                            elif in_reverse or out_reverse or misc_reverse:
+                                new_pmt_state = 'reversed'
+
+                    elif reconciliation_vals:
+                        new_pmt_state = 'partial'
+
+            invoice.payment_state = new_pmt_state
 
     @api.model
     def create_cashback(self):
@@ -212,11 +314,11 @@ class AccountMove(models.Model):
         super(AccountMove, self).action_post()
 
         for move in self:
-            if move.move_type == 'in_invoice' and move.journal_id.name == 'Cashback':
+            if move.move_type == 'out_refund' and move.journal_id.name == 'Cashback':
                 # Update cashback status for selected invoices
                 for invoice in move.selected_invoice_ids:
-                    if invoice.move_type == 'out_invoice':  # Ensure only regular invoices are checked
-                        invoice.cashback_status = 'cashbacked'  # Set status to 'cashbacked'
+                    if invoice.move_type in ('out_invoice', 'out_refund'):  # Ensure both regular invoices and refunds are checked
+                        invoice.cashback_status = 'cashbacked'
 
     def action_payment_register(self):
         # Check if the journal is 'Customer Cashback'

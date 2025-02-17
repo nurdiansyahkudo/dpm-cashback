@@ -179,7 +179,7 @@
             </field>
         </record>
 
-        <!-- Mengubah label 'Customer Invoice' menjadi 'Customer Cashback' -->
+        <!-- Invoice Customer Cashback Form' -->
         <record id="view_move_form_cashback" model="ir.ui.view">
             <field name="name">account.move.form.cashback</field>
             <field name="model">account.move</field>

@@ -10,6 +10,7 @@ PAYMENT_STATE_SELECTION = [
         ('reversed', 'Reversed'),
         ('invoicing_legacy', 'Invoicing App Legacy'),
         ('paid_cashback', 'Paid With Cashback'),
+        ('paid_discount', 'Paid With Additional Discount'),
 ]
 
 class AccountMove(models.Model):
@@ -272,12 +273,16 @@ class AccountMove(models.Model):
                                            and (reverse_move_types == {'out_refund'} or reverse_move_types == {'out_refund', 'entry'}))
                             cashback = (invoice.move_type in ('out_invoice', 'out_receipt')
                                            and (reverse_move_types == {'out_refund'} or reverse_move_types == {'out_refund', 'entry'})  and any(self.env['account.journal'].browse(j_id).name == 'Cashback' for j_id in reverse_journal_id)
+                            add_discount = (invoice.move_type in ('out_invoice', 'out_receipt')
+                                           and (reverse_move_types == {'out_refund'} or reverse_move_types == {'out_refund', 'entry'})  and any(self.env['account.journal'].browse(j_id).name == 'Additional Discount' for j_id in reverse_journal_id)
 )
                             misc_reverse = (invoice.move_type in ('entry', 'out_refund', 'in_refund')
                                             and reverse_move_types == {'entry'})
 
                             if cashback:
                                 new_pmt_state = 'paid_cashback'
+                            elif add_discount:
+                                new_pmt_state = 'paid_discount'
                             elif in_reverse or out_reverse or misc_reverse:
                                 new_pmt_state = 'reversed'
 

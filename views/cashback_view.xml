@@ -187,9 +187,9 @@
             <field name="arch" type="xml">
                 
                 <xpath expr="//div[@name='button_box']" position="after">
-                    <widget name="web_ribbon" title="Paid With Cashback"
+                    <widget name="web_ribbon" title="Paid With<br/>Cashback"
                             invisible="payment_state != 'paid_cashback' or move_type not in ('out_invoice', 'out_refund', 'in_invoice', 'in_refund', 'out_receipt', 'in_receipt')" style="max-width: 250px; word-wrap: break-word; overflow: hidden;"/>
-                    <widget name="web_ribbon" title="Paid ~ Add. Discount"
+                    <widget name="web_ribbon" title="Paid With<br/>Additional Discount"
                             invisible="payment_state != 'paid_discount' or move_type not in ('out_invoice', 'out_refund', 'in_invoice', 'in_refund', 'out_receipt', 'in_receipt')" style="max-width: 250px; word-wrap: break-word; overflow: hidden;"/>
                 </xpath>
                 <!-- Mengganti tampilan label move_type dengan move_type_label -->

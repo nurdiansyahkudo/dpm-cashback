@@ -32,11 +32,14 @@
                         widget="badge" 
                         decoration-danger="payment_state == 'not_paid'"
                         decoration-warning="payment_state in ('partial', 'in_payment')"
-<<<<<<< HEAD
+
+
                         decoration-success="payment_state == 'paid'"
-=======
+
                         decoration-success="payment_state in ('paid', 'paid_cashback')"
->>>>>>> ad8c433fe263c0b54ecc54c786d62555798e3e56
+
+                        decoration-success="payment_state in ('paid', 'paid_cashback', 'paid_discount')"
+
                         decoration-info="payment_state == 'reversed'"
                         invisible="payment_state == 'invoicing_legacy' or state != 'posted' or move_type == 'entry'"
                         optional="show"
@@ -183,7 +186,7 @@
             </field>
         </record>
 
-        <!-- Mengubah label 'Customer Invoice' menjadi 'Customer Cashback' -->
+        <!-- Invoice Customer Cashback Form' -->
         <record id="view_move_form_cashback" model="ir.ui.view">
             <field name="name">account.move.form.cashback</field>
             <field name="model">account.move</field>
@@ -192,8 +195,13 @@
                 
                 <xpath expr="//div[@name='button_box']" position="after">
                     <widget name="web_ribbon" title="Paid With Cashback"
-                            invisible="payment_state != 'paid_cashback' or move_type not in ('out_invoice', 'out_refund', 'in_invoice', 'in_refund', 'out_receipt', 'in_receipt')"/>
+                            invisible="payment_state != 'paid_cashback' or move_type not in ('out_invoice', 'out_refund', 'in_invoice', 'in_refund', 'out_receipt', 'in_receipt')"
+                            style="max-width: 250px; white-space: normal; overflow: hidden;"/>
+                    <widget name="web_ribbon" title="Paid With Discount"
+                            invisible="payment_state != 'paid_discount' or move_type not in ('out_invoice', 'out_refund', 'in_invoice', 'in_refund', 'out_receipt', 'in_receipt')"
+                            style="max-width: 250px; white-space: normal; overflow: hidden;"/>
                 </xpath>
+
                 <!-- Mengganti tampilan label move_type dengan move_type_label -->
                 <xpath expr="//span[@class='o_form_label']/field[@name='move_type']" position="replace">
                     <!-- <field 

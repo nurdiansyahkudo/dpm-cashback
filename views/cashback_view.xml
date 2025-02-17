@@ -190,7 +190,7 @@
                     <widget name="web_ribbon" title="Paid With Cashback"
                             invisible="payment_state != 'paid_cashback' or move_type not in ('out_invoice', 'out_refund', 'in_invoice', 'in_refund', 'out_receipt', 'in_receipt')"
                             style="max-width: 250px; white-space: normal; overflow: hidden;"/>
-                    <widget name="web_ribbon" title="Paid With Additional Discount"
+                    <widget name="web_ribbon" title="Paid Additional Disc."
                             invisible="payment_state != 'paid_discount' or move_type not in ('out_invoice', 'out_refund', 'in_invoice', 'in_refund', 'out_receipt', 'in_receipt')"
                             style="max-width: 250px; white-space: normal; overflow: hidden;"/>
                 </xpath>

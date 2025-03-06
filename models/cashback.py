@@ -120,15 +120,16 @@ class AccountMove(models.Model):
     @api.depends('invoice_line_ids.name', 'invoice_line_ids.product_id', 'selected_invoice_ids')
     def _compute_brand(self):
         for record in self:
+            # Reset daftar brands untuk setiap record
             brands = []
-            # Cek apakah ini adalah invoice cashback (tipe 'in_invoice' dan journal adalah Customer Cashback)
+
+            # Cek apakah ini adalah invoice cashback
             is_cashback_invoice = record.move_type == 'in_invoice' and record.journal_id.name == 'Cashback'
 
             # Periksa selected_invoice_ids terlebih dahulu
             if record.selected_invoice_ids:
                 for selected_invoice in record.selected_invoice_ids:
                     for line in selected_invoice.invoice_line_ids:
-                        # Ambil brand dari selected_invoice_ids jika tersedia
                         if line.product_id:
                             brand_value = line.product_id.product_tmpl_id.attribute_line_ids.filtered(
                                 lambda x: x.attribute_id.name == 'Brand'
@@ -138,25 +139,20 @@ class AccountMove(models.Model):
                 # Jika tidak ada selected_invoice_ids, lanjutkan pengecekan di invoice_line_ids
                 for line in record.invoice_line_ids:
                     if is_cashback_invoice:
-                        # Jika invoice cashback, ambil Brand dari 'name' di invoice_line_ids
                         if "Brand:" in line.name:
-                            # Memisahkan teks berdasarkan pola ' - Brand: '
                             brand_info = line.name.split(" - Brand: ")
                             if len(brand_info) > 1:
-                                # Mendapatkan nama brand setelah 'Brand:'
                                 brand_name = brand_info[1].strip()
                                 brands.append(brand_name)
                     else:
-                        # Jika bukan invoice cashback, ambil Brand dari product_id
                         if line.product_id:
                             brand_value = line.product_id.product_tmpl_id.attribute_line_ids.filtered(
                                 lambda x: x.attribute_id.name == 'Brand'
                             ).mapped('value_ids.name')
-                            brands.extend(brand_value)  # Gabungkan brand
+                            brands.extend(brand_value)
 
-            # Menggabungkan brand menjadi string unik
+            # Setel ulang nilai field brand dengan data terbaru
             record.brand = ', '.join(set(brands)) if brands else 'No Brand'
-
 
     def _search_brand(self, operator, value):
         # Search for brand
